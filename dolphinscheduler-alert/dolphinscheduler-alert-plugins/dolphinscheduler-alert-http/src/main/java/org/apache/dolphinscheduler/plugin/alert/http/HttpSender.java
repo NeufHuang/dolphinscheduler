@@ -40,8 +40,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -190,12 +189,66 @@ public final class HttpSender {
                 objectNode = JSONUtils.parseObject(bodyParams);
             }
             // set msg content field
-            objectNode.put(contentField, msg);
+            setNestedField(objectNode, msg);
             StringEntity entity = new StringEntity(JSONUtils.toJsonString(objectNode), StandardCharsets.UTF_8);
             ((HttpPost) httpRequest).setEntity(entity);
         } catch (Exception e) {
             log.error("send http alert msg  exception : {}", e.getMessage());
         }
+    }
+
+    /**
+     * 兼容企微群机器人
+     * 配置内容字段"text.content"
+     */
+    private void setNestedField(ObjectNode objectNode, String msg) {
+        if (StringUtils.isBlank(contentField)) {
+            return;
+        }
+
+        String[] pathParts = contentField.split("\\.");
+        ObjectNode currentNode = objectNode;
+
+        for (int i = 0; i < pathParts.length - 1; i++) {
+            String pathPart = pathParts[i];
+            if (!currentNode.has(pathPart)) {
+                currentNode.putObject(pathPart);
+            }
+            currentNode = (ObjectNode) currentNode.get(pathPart);
+        }
+
+        String lastPart = pathParts[pathParts.length - 1];
+        if (!Objects.equals(lastPart, "text")){
+            msg = setMdMsg(msg);
+        }
+        currentNode.put(lastPart, msg);
+    }
+
+    /**
+     * 企微群机器人 自定义md格式消息
+     */
+    private String setMdMsg(String msg) {
+        if (StringUtils.isNotEmpty(msg)) {
+            List<LinkedHashMap> mapItemsList = JSONUtils.toList(msg, LinkedHashMap.class);
+            if (null == mapItemsList || mapItemsList.isEmpty()) {
+                log.error("itemsList is null");
+                throw new RuntimeException("itemsList is null");
+            }
+
+            StringBuilder contents = new StringBuilder(100);
+            contents.append(String.format("`%s`%n", "DolphinScheduler 告警"));
+            for (LinkedHashMap mapItems : mapItemsList) {
+
+                Set<Map.Entry<String, Object>> entries = mapItems.entrySet();
+                for (Map.Entry<String, Object> entry : entries) {
+                    contents.append("> ");
+                    contents.append(entry.getKey()).append(":").append(entry.getValue());
+                    contents.append("\n");
+                }
+            }
+            return contents.toString();
+        }
+        return null;
     }
 
     public String getRequestUrl() {

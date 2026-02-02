@@ -41,3 +41,7 @@ POST `Http`告警指将告警结果作为`BODY`参数通过`Http`POST方法进�
 下图是POST告警配置的示例:
 
 ![enterprise-wechat-app-msg-config](../../../../img/alert/http-post-example.png)
+
+企微群聊机器人配置示例:
+参考企微文档，设定内容字段为`text.content`或`markdown.content`
+![http-wechat-webhook.png](../../../../img/alert/http-wechat-webhook.png)
